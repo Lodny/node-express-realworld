@@ -4,17 +4,19 @@ const CommentSchema = new mongoose.Schema(
   {
     body: String,
     author: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    article: { type: mongoose.Schema.Types.ObjectId, ref: 'Article' },
+    article: { type: mongoose.Schema.Types.ObjectId, ref: 'Article' }
   },
   { timestamps: true }
 );
 
-CommentSchema.methods.toJSONFor = function (user, article) {
+CommentSchema.methods.toJSONFor = function (user) {
   console.log('CommentSchema : toAuthJSON() : ');
   return {
+    id: this._id,
     body: this.body,
-    author: this.author.toProfileJSONFor(user),
-    article: this.article.toJSONFor(article),
+    createdAt: this.createdAt,
+    author: this.author.toProfileJSONFor(user)
+    // article: this.article.toJSONFor()
   };
 };
 

@@ -3,8 +3,10 @@ const auth = require('../auth');
 const Article = require('mongoose').model('Article');
 const User = require('mongoose').model('User');
 const Comment = require('mongoose').model('Comment');
+const validator = require('../validation');
 
 // doing something with params before router execution
+// ------------------------------------------------------------------------------------
 router.param('slug', (req, res, next, slug) => {
   console.log('ROUTE articles : before articles route : param : slug ', slug);
   Article.findOne({ slug: slug })
@@ -19,12 +21,25 @@ router.param('slug', (req, res, next, slug) => {
     .catch(next);
 });
 
+router.param('id', (req, res, next, id) => {
+  console.log('ROUTE articles/comments : before articles route : param : id ', id);
+  Comment.findOne({ _id: id })
+    .then((comment) => {
+      if (!comment) return res.sendStatus(404);
+
+      req.COMMENT = comment;
+
+      return next();
+    })
+    .catch(next);
+});
+// ------------------------------------------------------------------------------------
+
 // get article
 router.get('/:slug', auth.optional, async (req, res, next) => {
   console.log('ROUTE articles : get : article : ', req.article);
 
-  let user = null;
-  if (req.AUTH) user = await User.findById(req.AUTH.id);
+  const user = req.AUTH ? await User.findById(req.AUTH.id) : null;
 
   return res.json({ article: req.ARTICLE.toJSONFor(user) });
 });
@@ -58,13 +73,15 @@ router.get('/', async (req, res, next) => {
     .populate('author')
     .exec();
 
-  // console.log('ROUTE articles : router : articles : ', articles);
-  // return res.json({ articles: articles, articlesCount: articles.length });
+  console.log('ROUTE articles : router : articles : ', articles);
+  console.log('ROUTE articles : router : articles.length : ', articles.length);
 
-  return res.json({
-    articles: articles.map((article) => article.toJSONFor()),
-    articlesCount: articles.length,
-  });
+  // return res.json({
+  //   articles: articles.map((article) => article.toJSONFor()),
+  //   articlesCount: articles.length
+  // });
+
+  return res.json({ articles: articles.map((article) => article.toJSONFor()) });
 
   // Promise.all([
   //   req.query.author ? User.findOne({username: req.query.author}) : null,
@@ -115,7 +132,7 @@ router.post('/', auth.required, async (req, res, next) => {
   if (!user) return res.status(401).send('Token is not correct with User data');
 
   const article = new Article(req.body.article);
-  // article.author = user;
+  article.author = user;
 
   return article
     .save()
@@ -159,33 +176,95 @@ router.put('/:slug', auth.required, async (req, res, next) => {
   }
 });
 
-// Comments ======================================================================================
-// -----------------------------------------------------------------------------------------------
-router.post('/:slug/comments', auth.required, async (req, res, next) => {
-  console.log('ROUTE comments : post[add] : ', req.body);
-  // console.log('ROUTE comments : req.ARTICLE : ', req.ARTICLE);
+// Favorite ======================================================================================
+// favorite
+router.post('/:slug/favorite', auth.required, async (req, res, next) => {
+  console.log('ROUTE favorite : AUTH : ', req.AUTH);
+  console.log('ROUTE favorite : ARTICLE : ', req.ARTICLE);
 
   const user = await User.findById(req.AUTH.id);
-  if (!user) return res.status(401).send('Token is not correct with User data');
+  if (!user) return res.status(401).json({ errors: { token: ['is broken.'] } });
 
-  const comment = new Comment(req.body.comment);
-  comment.author = user;
-  comment.article = req.ARTICLE;
-  // console.log(comment);
-  return comment
+  console.log('favorites : ', user.favorites, req.ARTICLE._id);
+  const favorited = user.favorites.find((id) => id.toString() === req.ARTICLE._id.toString());
+  console.log('ROUTE favorite : favorited : ', favorited);
+
+  if (favorited) {
+    // unfavorited
+    req.ARTICLE.favoritesCount--;
+    user.favorites = user.favorites.filter((id) => id.toString() !== req.ARTICLE._id.toString());
+  } else {
+    // favorited
+    req.ARTICLE.favoritesCount++;
+    user.favorites.push(req.ARTICLE._id);
+  }
+
+  console.log('ROUTE favorite : user.favorites : ', user.favorites);
+
+  return user
     .save()
-    .then(() => res.json({ comment: comment.toJSONFor(user, req.ARTICLE) }))
+    .then(() => req.ARTICLE.save().then(() => res.json({ article: req.ARTICLE.toJSONFor(user) })))
     .catch(next);
 });
 
+// Comments ======================================================================================
+// -----------------------------------------------------------------------------------------------
+// add comment
+router.post('/:slug/comments', auth.required, validator(['body'], 'comment'), async (fields, req, res, next) => {
+  console.log('ROUTER /comments : add : fields : ', fields);
+  console.log('ROUTER /comments : add : req.body : ', req.body);
+
+  const user = await User.findById(req.AUTH.id);
+  // if (!user) return res.status(401).send('Token is not correct with User data');
+  if (!user) return res.status(401).json({ errors: { token: ['is broken.'] } });
+
+  const comment = new Comment(req.body.comment);
+  comment.article = req.ARTICLE;
+  comment.author = user;
+  // console.log(comment);
+  return comment
+    .save()
+    .then(() => {
+      req.ARTICLE.comments.push(comment);
+      return req.ARTICLE.save().then((article) => res.json({ comment: comment.toJSONFor(user) }));
+      // return req.ARTICLE.save().then( (article) => res.json({ comment: comment.toJSONFor(user, req.ARTICLE) }));
+    })
+    .catch(next);
+});
+
+// get article's comments
 router.get('/:slug/comments', auth.optional, async (req, res, next) => {
-  console.log('ROUTE comments : get all : ');
-  console.log('ROUTE comments : article : ', req.ARTICLE);
+  console.log('ROUTE comments : get all : article : ', req.ARTICLE);
 
-  const comments = await Comment.find({ article: req.ARTICLE._id });
-  console.log('ROUTE comments : comments : ', comments);
+  const user = req.AUTH ? await User.findById(req.AUTH.id) : null;
+  const comments = await Comment.find({ article: req.ARTICLE._id }).populate('author').exec();
+  // console.log('ROUTE comments : comments : ', comments);
 
-  res.send('get comments');
+  return res.json({
+    comments: comments.map((comment) => {
+      // comment.article = req.ARTICLE;
+      return comment.toJSONFor(user);
+    })
+    // comments: req.ARTICLE.comments.map((comment) => {
+    //   console.log('ROUTE comment : ', comment);
+    //   comment.article = req.ARTICLE;
+    //   return comment.toJSONFor(user);
+    // })
+  });
+});
+
+// delete article's comment
+router.delete('/:slug/comments/:id', auth.required, async (req, res, next) => {
+  console.log('ROUTE comments : delete : comment : ', req.COMMENT);
+  // console.log('ROUTE comments : delete : article : ', req.ARTICLE);
+
+  // if (req.COMMENT.author === req.AUTH.id)
+  // req.ARTICLE.comments = req.ARTICLE.comments.filter(comment => comment._id !== req.COMMENT._id);
+
+  req.ARTICLE.comments.remove(req.COMMENT._id);
+  return req.ARTICLE.save()
+    .then(Comment.find({ _id: req.COMMENT._id }).deleteOne().exec())
+    .then(() => res.sendStatus(204));
 });
 
 module.exports = router;

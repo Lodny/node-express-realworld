@@ -3,13 +3,15 @@
   "version": "1.0.0",
   "license": "MIT",
   "scripts": {
-    "start": "node ./app.js"
+    "start": "node ./app.js",
+    "pm2": "pm2 start ./app.js --watch"
   },
   "dependencies": {
     "cors": "^2.8.5",
     "crypto": "^1.0.1",
     "express": "^4.17.1",
     "express-jwt": "^6.0.0",
+    "express-validator": "^6.10.0",
     "jsonwebtoken": "^8.5.1",
     "mongoose": "^5.12.1",
     "mongoose-unique-validator": "^2.0.3",
