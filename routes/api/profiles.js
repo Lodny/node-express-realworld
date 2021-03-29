@@ -2,7 +2,7 @@ const router = require('express').Router();
 const auth = require('../auth');
 const User = require('mongoose').model('User');
 
-// Param ===========================================================
+// Param ==========================================================================================
 // username
 router.param('username', async (req, res, next, username) => {
   console.log('ROUTE profiles : before articles route : param : username ', username);
@@ -24,7 +24,7 @@ router.get('/:username', auth.optional, async (req, res, next) => {
   const user = req.AUTH ? await User.findById(req.AUTH.id) : null;
 
   return res.json({
-    profile: req.USER.toProfileJSONFor(user)
+    profile: req.USER.toProfileJSONFor(user),
   });
 });
 

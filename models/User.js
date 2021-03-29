@@ -12,7 +12,7 @@ const UserSchema = new mongoose.Schema(
       unique: true,
       required: [true, "can't be blank"],
       match: [/^[a-zA-Z0-9]+$/, 'is invalid'],
-      index: true
+      index: true,
     },
     email: {
       type: String,
@@ -21,14 +21,14 @@ const UserSchema = new mongoose.Schema(
       required: [true, "can't be blank"],
       match: [/^[a-zA-Z0-9@\.]+$/, 'is invalid'],
       // match: [/\S+@\S+\.\S+/, 'is invalid'],
-      index: true
+      index: true,
     },
     bio: String,
     image: String,
     favorites: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Article' }],
     following: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     hash: String,
-    salt: String
+    salt: String,
   },
   { timestamps: true }
 );
@@ -59,7 +59,7 @@ UserSchema.methods.generateJWT = function () {
     {
       id: this._id,
       username: this.username,
-      exp: parseInt(exp.getTime() / 1000)
+      exp: parseInt(exp.getTime() / 1000),
     },
     secret
   );
@@ -72,7 +72,7 @@ UserSchema.methods.toAuthJSON = function () {
     email: this.email,
     token: this.generateJWT(),
     bio: this.bio,
-    image: this.image || 'https://static.productionready.io/images/smiley-cyrus.jpg'
+    image: this.image || 'https://static.productionready.io/images/smiley-cyrus.jpg',
     // token:
     //   'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpZCI6MTUwMzA1LCJ1c2VybmFtZSI6ImRyaW5ranVpY2UiLCJleHAiOjE2MjE3NDY2ODB9.PHilzBf--HKZs0IQaMZLMDnoFiU6N6u_tiiT2g-5fpQ',
   };
@@ -84,7 +84,7 @@ UserSchema.methods.toProfileJSONFor = function (user) {
     username: this.username,
     bio: this.bio,
     image: this.image || 'https://static.productionready.io/images/smiley-cyrus.jpg',
-    following: user ? user.isFollowing(this._id) : false
+    following: user ? user.isFollowing(this._id) : false,
   };
 };
 

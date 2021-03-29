@@ -13,7 +13,7 @@ router.post('/users', validator(['username', 'email', 'password'], 'user'), (fie
   const user = new User();
   user.username = fields.username;
   user.email = fields.email;
-  user.setPassword(fields.username, fields.password);
+  user.setPassword(fields.password);
 
   user
     .save()
@@ -42,7 +42,8 @@ router.put('/user', auth.required, validator(['username', 'email'], 'user'), asy
 });
 
 // login
-// router.post('/users/login', validator(['email', 'password'], 'user'), async (fields, req, res) => {
+// validator 에서 next를 call 할 때, parmam을 보내면, 받는 함수에서 param을 받기 때문에 next가 있어야 param의
+// 수를 맟출 수 있다.
 router.post('/users/login', validator(['email', 'password'], 'user'), async (fields, req, res, next) => {
   console.log('ROUTER /users/login : ', fields);
 

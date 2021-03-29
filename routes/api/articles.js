@@ -5,9 +5,11 @@ const User = require('mongoose').model('User');
 const Comment = require('mongoose').model('Comment');
 const validator = require('../validation');
 
+// Param ==========================================================================================
 // doing something with params before router execution
-// ------------------------------------------------------------------------------------
 router.param('slug', (req, res, next, slug) => {
+  if (slug === 'feed') return next();
+
   console.log('ROUTE articles : before articles route : param : slug ', slug);
   Article.findOne({ slug: slug })
     .populate('author')
@@ -33,9 +35,43 @@ router.param('id', (req, res, next, id) => {
     })
     .catch(next);
 });
-// ------------------------------------------------------------------------------------
 
-// get article
+// Article ==========================================================================================
+// get feed list : Feed Articles created by followed users
+// 아래 slug를 받는 것보다 먼저 와야 한다.
+// router.get('/feed', auth.requiredIfget, async (req, res, next) => {
+router.get('/feed', auth.required, async (req, res, next) => {
+  console.log('ROUTER : articles/feed : your feed : req.AUTH : ', req.AUTH);
+  // console.log('ROUTER : articles/feed : your feed : req.DOC : ', req.DOC);
+  console.log('ROUTER : articles/feed : your feed : req.query : ', req.query);
+
+  const user = await User.findById(req.AUTH.id);
+  if (!user) return res.status(401).send('Token does not match');
+
+  var query = {};
+  var limit = 10;
+  var offset = 0;
+
+  // from following me
+  // const followers = await User.find({ following: { $in: [req.AUTH.id] } });
+  // console.log('ROUTER : articles/feed : followers.length :  : ', followers.length);
+  // const articles = await Article.find({ author: followers }).populate('author').exec();
+  // console.log('ROUTER : articles/feed : articles.length :  : ', articles.length);
+  // console.log('ROUTER : articles/feed : articles :  : ', articles);
+
+  const articles = await Article.find({ author: { $in: user.following } })
+    .skip(Number(offset))
+    .limit(Number(limit))
+    .sort({ createdAt: 'desc' })
+    .populate('author')
+    .exec();
+  console.log('ROUTER : articles/feed : articles.length :  : ', articles.length);
+  // console.log('ROUTER : articles/feed : articles :  : ', articles);
+
+  return res.json({ articles: articles.map((article) => article.toJSONFor(user)) });
+});
+
+// get one article
 router.get('/:slug', auth.optional, async (req, res, next) => {
   console.log('ROUTE articles : get : article : ', req.article);
 
@@ -45,11 +81,17 @@ router.get('/:slug', auth.optional, async (req, res, next) => {
 });
 
 // get article list
-router.get('/', async (req, res, next) => {
+router.get('/', auth.optional, async (req, res, next) => {
+  console.log('ROUTER : articles : get all : req.AUTH : ', req.AUTH);
+
   var query = {};
   var limit = 20;
   var offset = 0;
-
+  // ?tag=AngularJS
+  // ?author=jake
+  // ?favorited=jake
+  // ?limit=20
+  // ?offset=0
   if (typeof req.query.limit !== 'undefined') {
     limit = req.query.limit;
   }
@@ -62,8 +104,17 @@ router.get('/', async (req, res, next) => {
     query.tagList = { $in: [req.query.tag] };
   }
 
-  const author = req.query.author ? await User.findOne({ username: req.query.author }) : null;
-  if (author) query.author = author._id;
+  if (req.query.author) {
+    const author = await User.findOne({ username: req.query.author });
+    if (!author) return res.status(401).json({ errors: { query: ['is wrong.'] } }); // go home ??
+    query.author = author._id;
+  }
+
+  let user = null;
+  if (req.AUTH) {
+    user = await User.findById(req.AUTH.id);
+    if (!user) return res.status(401).json({ errors: { token: ['is broken.'] } });
+  }
 
   console.log('ROUTE articles : get : articles : ', limit, offset, query);
   const articles = await Article.find(query)
@@ -81,7 +132,7 @@ router.get('/', async (req, res, next) => {
   //   articlesCount: articles.length
   // });
 
-  return res.json({ articles: articles.map((article) => article.toJSONFor()) });
+  return res.json({ articles: articles.map((article) => article.toJSONFor(user)) });
 
   // Promise.all([
   //   req.query.author ? User.findOne({username: req.query.author}) : null,
@@ -124,23 +175,30 @@ router.get('/', async (req, res, next) => {
   // }).catch(next);
 });
 
-// add
-router.post('/', auth.required, async (req, res, next) => {
-  console.log('ROUTE articles : post : add : body : ', req.body);
+// add article
+router.post(
+  '/',
+  auth.required,
+  validator(['title', 'description', 'body'], 'article'),
+  async (fields, req, res, next) => {
+    console.log('ROUTE articles : post : add : fields : ', fields);
+    console.log('ROUTE articles : post : add : req.body : ', req.body);
+    console.log('ROUTE articles : post : add : req.AUTH : ', req.AUTH);
 
-  const user = await User.findById(req.AUTH.id);
-  if (!user) return res.status(401).send('Token is not correct with User data');
+    const user = await User.findById(req.AUTH.id);
+    if (!user) return res.status(401).json({ errors: { token: ['is broken.'] } });
 
-  const article = new Article(req.body.article);
-  article.author = user;
+    const article = new Article(req.body.article);
+    article.author = user;
 
-  return article
-    .save()
-    .then(() => res.json({ article: article.toJSONFor(user) }))
-    .catch(next);
-});
+    return article
+      .save()
+      .then(() => res.json({ article: article.toJSONFor(user) }))
+      .catch(next);
+  }
+);
 
-// update
+// update article
 router.put('/:slug', auth.required, async (req, res, next) => {
   console.log('ROUTE articles : put : update : req.body : ', req.body);
 
@@ -172,8 +230,16 @@ router.put('/:slug', auth.required, async (req, res, next) => {
         .catch(next);
     });
   } else {
-    res.status(403).send('Token is broken.');
+    return res.status(403).send('Token is broken.');
   }
+});
+
+// delete article
+router.delete('/:slug', auth.required, async (req, res, next) => {
+  console.log('ROUTER articles : delete : req.AUTH : ', req.AUTH);
+  console.log('ROUTER articles : delete : req.ARTICLE : ', req.ARTICLE);
+
+  return req.ARTICLE.remove().then(() => res.status(200).json({}));
 });
 
 // Favorite ======================================================================================
@@ -244,7 +310,7 @@ router.get('/:slug/comments', auth.optional, async (req, res, next) => {
     comments: comments.map((comment) => {
       // comment.article = req.ARTICLE;
       return comment.toJSONFor(user);
-    })
+    }),
     // comments: req.ARTICLE.comments.map((comment) => {
     //   console.log('ROUTE comment : ', comment);
     //   comment.article = req.ARTICLE;

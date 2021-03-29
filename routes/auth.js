@@ -30,6 +30,36 @@ const requiredHandler = (req, res, next) => {
   next();
 };
 
+// const requiredIfgetHandler = (selection) => async (req, res, next) => {
+//   const token = getTokenFromHeader(req);
+
+//   if (!token) {
+//     console.log('[I] AUTH : There is no auth');
+//     return res.status(400).send('There is no Token');
+//   } else {
+//     jwt.verify(token, secret, (err, decoded) => {
+//       if (err) {
+//         console.log('[E] AUTH : Token does not match');
+//         return res.status(401).send('Token does not match');
+//       } else {
+//         selection
+//           .findById(decoded.id)
+//           .then((doc) => {
+//             console.log('doc', decoded, doc);
+//             req.AUTH = decoded;
+//             req.DOC = doc;
+//           })
+//           .catch((err) => {
+//             console.log('[E] AUTH : Token does not match in DB');
+//             return res.status(401).send('Token does not match in DB');
+//           });
+//       }
+//     });
+//   }
+
+//   next();
+// };
+
 const optionalHandler = (req, res, next) => {
   const token = getTokenFromHeader(req);
 
@@ -51,6 +81,7 @@ const optionalHandler = (req, res, next) => {
 
 const auth = {
   required: requiredHandler,
+  // requiredIfget: requiredIfgetHandler,
   optional: optionalHandler,
 };
 
