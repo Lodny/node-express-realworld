@@ -87,11 +87,7 @@ router.get('/', auth.optional, async (req, res, next) => {
   var query = {};
   var limit = 20;
   var offset = 0;
-  // ?tag=AngularJS
-  // ?author=jake
-  // ?favorited=jake
-  // ?limit=20
-  // ?offset=0
+  // ?tag=AngularJS  // ?author=jake  // ?favorited=jake  // ?limit=20  // ?offset=0
   if (typeof req.query.limit !== 'undefined') {
     limit = req.query.limit;
   }
@@ -110,13 +106,20 @@ router.get('/', auth.optional, async (req, res, next) => {
     query.author = author._id;
   }
 
+  if (req.query.favorited) {
+    const favoritedUser = await User.findOne({ username: req.query.favorited });
+    if (!favoritedUser) return res.status(401).json({ errors: { query: ['is wrong.'] } }); // go home ??
+    query._id = favoritedUser.favorites;
+    // query._id = {$in: favoriter.favorites};
+  }
+
   let user = null;
   if (req.AUTH) {
     user = await User.findById(req.AUTH.id);
     if (!user) return res.status(401).json({ errors: { token: ['is broken.'] } });
   }
 
-  console.log('ROUTE articles : get : articles : ', limit, offset, query);
+  console.log('ROUTER articles : get : articles : ', limit, offset, query);
   const articles = await Article.find(query)
     .skip(Number(offset))
     .limit(Number(limit))
@@ -124,55 +127,14 @@ router.get('/', auth.optional, async (req, res, next) => {
     .populate('author')
     .exec();
 
-  console.log('ROUTE articles : router : articles : ', articles);
-  console.log('ROUTE articles : router : articles.length : ', articles.length);
+  // console.log('ROUTER articles : ', articles);
+  console.log('ROUTER articles : articles.length : ', articles.length);
 
   // return res.json({
   //   articles: articles.map((article) => article.toJSONFor()),
   //   articlesCount: articles.length
   // });
-
   return res.json({ articles: articles.map((article) => article.toJSONFor(user)) });
-
-  // Promise.all([
-  //   req.query.author ? User.findOne({username: req.query.author}) : null,
-  //   req.query.favorited ? User.findOne({username: req.query.favorited}) : null
-  // ]).then(function(results){
-  //   var author = results[0];
-  //   var favoriter = results[1];
-
-  //   if(author){
-  //     query.author = author._id;
-  //   }
-
-  //   if(favoriter){
-  //     query._id = {$in: favoriter.favorites};
-  //   } else if(req.query.favorited){
-  //     query._id = {$in: []};
-  //   }
-
-  //   return Promise.all([
-  //     Article.find(query)
-  //       .limit(Number(limit))
-  //       .skip(Number(offset))
-  //       .sort({createdAt: 'desc'})
-  //       .populate('author')
-  //       .exec(),
-  //     Article.count(query).exec(),
-  //     req.payload ? User.findById(req.payload.id) : null,
-  //   ]).then(function(results){
-  //     var articles = results[0];
-  //     var articlesCount = results[1];
-  //     var user = results[2];
-
-  //     return res.json({
-  //       articles: articles.map(function(article){
-  //         return article.toJSONFor(user);
-  //       }),
-  //       articlesCount: articlesCount
-  //     });
-  //   });
-  // }).catch(next);
 });
 
 // add article

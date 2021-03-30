@@ -20,7 +20,7 @@ mongoose.connect(
   {
     useNewUrlParser: true,
     useCreateIndex: true,
-    useUnifiedTopology: true
+    useUnifiedTopology: true,
   },
   (err) => {
     if (err) {
@@ -33,6 +33,7 @@ mongoose.connect(
 require('./models/User');
 require('./models/Article');
 require('./models/Comment');
+// require('./models/Tag');
 
 // =============================================================================
 // Router
@@ -59,8 +60,8 @@ app.use(function (err, req, res, next) {
 
   res.json({
     errors: {
-      error: err
-    }
+      error: err,
+    },
   });
 });
 

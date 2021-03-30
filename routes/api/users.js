@@ -5,22 +5,6 @@ const validator = require('../validation');
 // param
 
 // Router ===========================================================
-// register
-router.post('/users', validator(['username', 'email', 'password'], 'user'), (fields, req, res, next) => {
-  console.log('ROUTER /users : register : ', req.body);
-  console.log('ROUTER /users : register : ', fields);
-
-  const user = new User();
-  user.username = fields.username;
-  user.email = fields.email;
-  user.setPassword(fields.password);
-
-  user
-    .save()
-    .then(() => res.json({ user: user.toAuthJSON() }))
-    .catch(next);
-});
-
 // update
 router.put('/user', auth.required, validator(['username', 'email'], 'user'), async (fields, req, res, next) => {
   console.log('ROUTER /user : update : fields : ', fields);
@@ -36,6 +20,22 @@ router.put('/user', auth.required, validator(['username', 'email'], 'user'), asy
   if (fields.password) user.setPassword(fields.password);
 
   return user
+    .save()
+    .then(() => res.json({ user: user.toAuthJSON() }))
+    .catch(next);
+});
+
+// register
+router.post('/users', validator(['username', 'email', 'password'], 'user'), (fields, req, res, next) => {
+  console.log('ROUTER /users : register : ', req.body);
+  console.log('ROUTER /users : register : ', fields);
+
+  const user = new User();
+  user.username = fields.username;
+  user.email = fields.email;
+  user.setPassword(fields.password);
+
+  user
     .save()
     .then(() => res.json({ user: user.toAuthJSON() }))
     .catch(next);
